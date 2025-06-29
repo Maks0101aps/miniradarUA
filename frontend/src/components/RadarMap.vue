@@ -8,8 +8,7 @@
 <script>
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
-import 'leaflet-geosearch/dist/geosearch.css';
+
 import html2canvas from 'html2canvas';
 
 export default {
@@ -18,7 +17,8 @@ export default {
   },
   data() {
     return {
-      map: null
+      map: null,
+      targetLayerGroup: null
     };
   },
   mounted() {
@@ -45,7 +45,7 @@ export default {
       );
 
       this.map = L.map(this.$refs.mapContainer, {
-        center: [49.0, 31.0],
+        center: [50.0, 32.0], // Centered more north
         zoom: 6,
         minZoom: 6,
         maxBounds: ukraineBounds,
@@ -56,68 +56,24 @@ export default {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       }).addTo(this.map);
 
-      this.map.fitBounds(ukraineBounds);
       this.map.invalidateSize();
+      this.targetLayerGroup = L.layerGroup().addTo(this.map);
 
-      const provider = new OpenStreetMapProvider({
-        params: {
-          'accept-language': 'uk',
-          countrycodes: 'ua',
-        },
-      });
-
-      const searchControl = new GeoSearchControl({
-        provider: provider,
-        style: 'bar',
-        showMarker: true,
-        showPopup: false,
-        autoClose: true,
-        retainZoomLevel: false,
-        animateZoom: true,
-        keepResult: true,
-        searchLabel: 'Пошук населеного пункту'
-      });
-
-      this.map.addControl(searchControl);
-
-      this.map.on('geosearch/showlocation', (result) => {
-        this.$emit('location-selected', result.location);
-      });
+      this.map.on('zoomend', this.addTargets);
     },
     addTargets() {
-      // Clear existing markers
-      this.map.eachLayer(layer => {
-        if (layer instanceof L.Marker || layer instanceof L.Polyline) {
-          this.map.removeLayer(layer);
-        }
-      });
+      this.targetLayerGroup.clearLayers();
 
       this.targets.forEach(target => {
         const quantity = target.quantity || 1;
         const popupContent = `<b>${target.name}</b><br>Напрямок: ${target.direction}<br>Кількість: ${quantity}`;
 
-        if (quantity === 1) {
-          const uavIcon = this.getUavIcon(target.direction, 24);
-          const marker = L.marker([target.lat, target.lng], { icon: uavIcon }).addTo(this.map);
-          marker.bindPopup(popupContent);
-        } else {
-          for (let i = 0; i < quantity; i++) {
-            const offsetPosition = this.getOffsetPosition(target.lat, target.lng, i, quantity);
-            const uavIcon = this.getUavIcon(target.direction, 16); // Smaller icon
-            const marker = L.marker(offsetPosition, { icon: uavIcon }).addTo(this.map);
-            marker.bindPopup(popupContent);
-          }
-        }
+        const uavIcon = this.getUavIcon(target.direction, quantity, 30);
+        const marker = L.marker([target.lat, target.lng], { icon: uavIcon }).addTo(this.targetLayerGroup);
+        marker.bindPopup(popupContent);
       });
     },
-    getOffsetPosition(lat, lng, index, total) {
-      const radius = 0.025; // The radius of the circle for spreading icons
-      const angle = (index / total) * 2 * Math.PI; // Angle in radians
-      const latOffset = radius * Math.cos(angle);
-      const lngOffset = radius * Math.sin(angle);
-      return [lat + latOffset, lng + lngOffset];
-    },
-    getUavIcon(direction, size = 24) {
+    getUavIcon(direction, quantity = 1, size = 24) {
       const rotation = {
         'Північ': 0,
         'Північний схід': 45,
@@ -129,11 +85,16 @@ export default {
         'Північний захід': 315
       }[direction] || 0;
 
+      const quantityBadge = quantity > 1 ? `<span class="quantity-badge">${quantity}</span>` : '';
+
       const iconHtml = `
-        <div style="transform: rotate(${rotation}deg);">
-          <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="#ff4d4d" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 22L12 18L22 22L12 2Z"/>
-          </svg>
+        <div class="uav-icon-container">
+          <div style="transform: rotate(${rotation}deg);">
+            <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="#ff4d4d" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 22L12 18L22 22L12 2Z"/>
+            </svg>
+          </div>
+          ${quantityBadge}
         </div>`;
 
       return L.divIcon({
@@ -145,7 +106,7 @@ export default {
     },
     async captureMap() {
       try {
-        const canvas = await html2canvas(this.$refs.mapContainer);
+        const canvas = await html2canvas(this.$refs.mapContainer, { useCORS: true });
         const link = document.createElement('a');
         link.download = 'miniradar-screenshot-' + new Date().getTime() + '.png';
         link.href = canvas.toDataURL('image/png');
@@ -159,6 +120,24 @@ export default {
 </script>
 
 <style>
+.uav-icon-container {
+  position: relative;
+}
+
+.quantity-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff4d4d;
+  color: white;
+  border-radius: 50%;
+  padding: 1px 4px;
+  font-size: 11px;
+  font-weight: bold;
+  border: 1px solid white;
+  z-index: 10;
+}
+
 .uav-icon {
   background: transparent;
   border: none;
