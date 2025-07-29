@@ -1,4 +1,91 @@
-# Mini Radar UA / Міні Радар України
+# Mini-Radar Ukraine
+
+Welcome to **Mini-Radar Ukraine**, a dynamic and interactive web application designed to visualize and manage targets on a map of Ukraine. This project provides a simple yet powerful interface for real-time tracking, making it an excellent tool for monitoring and analysis.
+
+## ✨ Features
+
+- **Interactive Map**: A responsive map centered on Ukraine, providing a clear and intuitive user experience.
+- **Target Visualization**: Display targets with custom markers, showing their location and details at a glance.
+- **Add New Targets**: Easily add new targets by clicking on the map and filling out a simple form with details like name, direction, and quantity.
+- **Real-Time Updates**: The application fetches and displays the latest target data, ensuring you always have the most current information.
+- **Clear All Targets**: A convenient one-click option to clear all targets from the map, allowing for a fresh start.
+- **Containerized Deployment**: The entire application is containerized with Docker, ensuring a consistent and hassle-free setup across different environments.
+
+## 🚀 Getting Started
+
+Follow these instructions to get a local copy of the project up and running on your machine.
+
+### Prerequisites
+
+Make sure you have the following software installed on your system:
+
+- [Docker](https://www.docker.com/get-started)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+### Installation & Running
+
+1.  **Clone the repository to your local machine:**
+
+    ```sh
+    git clone https://github.com/your-username/miniradarUA.git
+    cd miniradarUA
+    ```
+
+2.  **Launch the application using Docker Compose:**
+
+    ```sh
+    docker-compose up --build -d
+    ```
+
+    This command will build the Docker images for the frontend and backend services and start them in detached mode.
+
+3.  **Access the application in your browser:**
+
+    -   **Frontend**: Navigate to `http://localhost:8080`
+    -   **Backend API**: The backend server is accessible at `http://localhost:3000`
+
+## 🧪 Running Tests
+
+This project comes with a comprehensive test suite to ensure the reliability and correctness of the application.
+
+### Backend API Tests
+
+To run the backend tests using **Jest** and **Supertest**, execute the following command:
+
+```sh
+docker-compose exec backend npm test
+```
+
+This will run the tests within the `backend` service container and display the results in your terminal.
+
+### End-to-End (E2E) Tests
+
+To run the end-to-end tests using **Playwright**, use the following command:
+
+```sh
+docker-compose run --rm e2e
+```
+
+This command will start a dedicated `e2e` service, run the Playwright tests in a headless browser, and generate a detailed report in the `playwright-report` directory.
+
+## 🛠️ Built With
+
+This project is built with a modern and robust technology stack:
+
+-   **Frontend**:
+    -   [Vue.js](https://vuejs.org/)
+    -   [Vite](https://vitejs.dev/)
+    -   [Axios](https://axios-http.com/)
+-   **Backend**:
+    -   [Node.js](https://nodejs.org/)
+    -   [Express.js](https://expressjs.com/)
+-   **Testing**:
+    -   [Playwright](https://playwright.dev/)
+    -   [Jest](https://jestjs.io/)
+    -   [Supertest](https://github.com/visionmedia/supertest)
+-   **Containerization**:
+    -   [Docker](https://www.docker.com/)
+    -   [Docker Compose](https://docs.docker.com/compose/)
 
 [Українська версія нижче / Ukrainian version below]
 

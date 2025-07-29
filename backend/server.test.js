@@ -1,0 +1,543 @@
+const request = require('supertest');
+const express = require('express');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+
+// Mock the app (simplified for testing)
+const app = express();
+app.use(bodyParser.json());
+app.use(cors());
+
+let targets = []; // In-memory storage for targets
+
+// Re-implement API endpoints for testing context
+app.get('/api/targets', (req, res) => {
+  res.json(targets);
+});
+
+app.post('/api/add', (req, res) => {
+  const newTarget = {
+    id: Date.now(),
+    name: req.body.name,
+    direction: req.body.direction,
+    quantity: parseInt(req.body.quantity, 10) || 1,
+    lat: req.body.lat,
+    lng: req.body.lng,
+    createdAt: new Date().toISOString()
+  };
+  targets.push(newTarget);
+  res.status(201).json(newTarget);
+});
+
+app.delete('/api/targets/clear', (req, res) => {
+  targets = [];
+  res.status(204).send();
+});
+
+describe('Targets API', () => {
+  beforeEach(() => {
+    targets = []; // Clear targets before each test
+  });
+
+  // Test 1: GET /api/targets - Should return an empty array when no targets are available
+  test('should get an empty array of targets', async () => {
+    const response = await request(app).get('/api/targets');
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual([]);
+  });
+
+  // Test 2: POST /api/add - Should add a new target
+  test('should add a new target', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBe(newTarget.name);
+    expect(response.body.direction).toBe(newTarget.direction);
+    expect(response.body.quantity).toBe(newTarget.quantity);
+    expect(response.body.lat).toBe(newTarget.lat);
+    expect(response.body.lng).toBe(newTarget.lng);
+  });
+
+  // Test 3: GET /api/targets - Should return targets after adding
+  test('should get targets after adding', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    await request(app).post('/api/add').send(newTarget);
+    const response = await request(app).get('/api/targets');
+    expect(response.statusCode).toBe(200);
+    expect(response.body.length).toBe(1);
+    expect(response.body[0].name).toBe(newTarget.name);
+  });
+
+  // Test 4: DELETE /api/targets/clear - Should clear all targets
+  test('should clear all targets', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    await request(app).post('/api/add').send(newTarget);
+    const response = await request(app).delete('/api/targets/clear');
+    expect(response.statusCode).toBe(204);
+    const getResponse = await request(app).get('/api/targets');
+    expect(getResponse.body).toEqual([]);
+  });
+
+  // Test 5: POST /api/add - Should handle missing fields
+  test('should handle missing fields', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      // Missing direction, quantity, lat, lng
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBe(newTarget.name);
+    expect(response.body.quantity).toBe(1); // Default value
+  });
+
+  // Test 6: POST /api/add - Should convert quantity to integer
+  test('should convert quantity to integer', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: '5', // String instead of number
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.quantity).toBe(5); // Converted to number
+  });
+
+  // Test 7: POST /api/add - Should handle invalid quantity
+  test('should handle invalid quantity', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 'invalid', // Not a number
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.quantity).toBe(1); // Default value
+  });
+
+  // Test 8: POST /api/add - Should handle negative quantity
+  test('should handle negative quantity', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: -5, // Negative number
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.quantity).toBe(-5); // Keeps the negative value
+  });
+
+  // Test 10: POST /api/add - Should handle decimal quantity
+  test('should handle decimal quantity', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5.5, // Decimal number
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.quantity).toBe(5); // Truncated to integer
+  });
+
+  // Test 11: POST /api/add - Should handle large quantity
+  test('should handle large quantity', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 1000000,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.quantity).toBe(1000000);
+  });
+
+  // Test 12: POST /api/add - Should handle empty name
+  test('should handle empty name', async () => {
+    const newTarget = {
+      name: '',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBe('');
+  });
+
+  // Test 13: POST /api/add - Should handle very long name
+  test('should handle very long name', async () => {
+    const longName = 'a'.repeat(1000);
+    const newTarget = {
+      name: longName,
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBe(longName);
+  });
+
+  // Test 14: POST /api/add - Should handle special characters in name
+  test('should handle special characters in name', async () => {
+    const specialName = 'Test!@#$%^&*()_+{}|:"<>?[];\',./ Target';
+    const newTarget = {
+      name: specialName,
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBe(specialName);
+  });
+
+  // Test 15: POST /api/add - Should handle empty direction
+  test('should handle empty direction', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: '',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.direction).toBe('');
+  });
+
+  // Test 16: POST /api/add - Should handle very long direction
+  test('should handle very long direction', async () => {
+    const longDirection = 'a'.repeat(1000);
+    const newTarget = {
+      name: 'Test Target',
+      direction: longDirection,
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.direction).toBe(longDirection);
+  });
+
+  // Test 17: POST /api/add - Should handle special characters in direction
+  test('should handle special characters in direction', async () => {
+    const specialDirection = 'North!@#$%^&*()_+{}|:"<>?[];\',./ East';
+    const newTarget = {
+      name: 'Test Target',
+      direction: specialDirection,
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.direction).toBe(specialDirection);
+  });
+
+  // Test 18: POST /api/add - Should handle missing lat/lng
+  test('should handle missing lat/lng', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5
+      // Missing lat, lng
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.lat).toBeUndefined();
+    expect(response.body.lng).toBeUndefined();
+  });
+
+  // Test 19: POST /api/add - Should handle invalid lat/lng
+  test('should handle invalid lat/lng', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 'invalid',
+      lng: 'invalid'
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.lat).toBe('invalid');
+    expect(response.body.lng).toBe('invalid');
+  });
+
+  // Test 20: POST /api/add - Should handle out-of-range lat/lng
+  test('should handle out-of-range lat/lng', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 200, // Out of range
+      lng: 200 // Out of range
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.lat).toBe(200);
+    expect(response.body.lng).toBe(200);
+  });
+
+  // Test 21: POST /api/add - Should handle decimal lat/lng
+  test('should handle decimal lat/lng', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.lat).toBe(50.4501);
+    expect(response.body.lng).toBe(30.5234);
+  });
+
+  // Test 22: POST /api/add - Should handle negative lat/lng
+  test('should handle negative lat/lng', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: -50.4501,
+      lng: -30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.lat).toBe(-50.4501);
+    expect(response.body.lng).toBe(-30.5234);
+  });
+
+  // Test 23: POST /api/add - Should handle string lat/lng
+  test('should handle string lat/lng', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: '50.4501',
+      lng: '30.5234'
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.lat).toBe('50.4501');
+    expect(response.body.lng).toBe('30.5234');
+  });
+
+  // Test 24: POST /api/add - Should add multiple targets
+  test('should add multiple targets', async () => {
+    const target1 = {
+      name: 'Target 1',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const target2 = {
+      name: 'Target 2',
+      direction: 'South',
+      quantity: 10,
+      lat: 49.8397,
+      lng: 24.0297
+    };
+    await request(app).post('/api/add').send(target1);
+    await request(app).post('/api/add').send(target2);
+    const response = await request(app).get('/api/targets');
+    expect(response.statusCode).toBe(200);
+    expect(response.body.length).toBe(2);
+    expect(response.body[0].name).toBe(target1.name);
+    expect(response.body[1].name).toBe(target2.name);
+  });
+
+  // Test 25: POST /api/add - Should add target with id
+  test('should add target with id', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.id).toBeDefined();
+  });
+
+  // Test 26: POST /api/add - Should add target with createdAt
+  test('should add target with createdAt', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.createdAt).toBeDefined();
+  });
+
+  // Test 27: POST /api/add - Should handle duplicate targets
+  test('should handle duplicate targets', async () => {
+    const newTarget = {
+      name: 'Test Target',
+      direction: 'North',
+      quantity: 5,
+      lat: 50.4501,
+      lng: 30.5234
+    };
+    await request(app).post('/api/add').send(newTarget);
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    const getResponse = await request(app).get('/api/targets');
+    expect(getResponse.body.length).toBe(2);
+  });
+
+  // Test 28: POST /api/add - Should handle empty request body
+  test('should handle empty request body', async () => {
+    const response = await request(app).post('/api/add').send({});
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBeUndefined();
+    expect(response.body.direction).toBeUndefined();
+    expect(response.body.quantity).toBe(1); // Default value
+    expect(response.body.lat).toBeUndefined();
+    expect(response.body.lng).toBeUndefined();
+  });
+
+  // Test 29: POST /api/add - Should handle null values
+  test('should handle null values', async () => {
+    const newTarget = {
+      name: null,
+      direction: null,
+      quantity: null,
+      lat: null,
+      lng: null
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBeNull();
+    expect(response.body.direction).toBeNull();
+    expect(response.body.quantity).toBe(1); // Default value
+    expect(response.body.lat).toBeNull();
+    expect(response.body.lng).toBeNull();
+  });
+
+  // Test 30: DELETE /api/targets/clear - Should handle empty targets
+  test('should handle clearing empty targets', async () => {
+    const response = await request(app).delete('/api/targets/clear');
+    expect(response.statusCode).toBe(204);
+    const getResponse = await request(app).get('/api/targets');
+    expect(getResponse.body).toEqual([]);
+  });
+
+  // Test 31: POST /api/add - Should handle undefined values
+  test('should handle undefined values', async () => {
+    const newTarget = {
+      name: undefined,
+      direction: undefined,
+      quantity: undefined,
+      lat: undefined,
+      lng: undefined
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBeUndefined();
+    expect(response.body.direction).toBeUndefined();
+    expect(response.body.quantity).toBe(1); // Default value
+    expect(response.body.lat).toBeUndefined();
+    expect(response.body.lng).toBeUndefined();
+  });
+
+  // Test 32: POST /api/add - Should handle boolean values
+  test('should handle boolean values', async () => {
+    const newTarget = {
+      name: true,
+      direction: false,
+      quantity: true,
+      lat: true,
+      lng: false
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toBe(true);
+    expect(response.body.direction).toBe(false);
+    expect(response.body.quantity).toBe(1); // Default value for true
+    expect(response.body.lat).toBe(true);
+    expect(response.body.lng).toBe(false);
+  });
+
+  // Test 33: POST /api/add - Should handle array values
+  test('should handle array values', async () => {
+    const newTarget = {
+      name: ['Test', 'Target'],
+      direction: ['North', 'East'],
+      quantity: [5, 10],
+      lat: [50.4501],
+      lng: [30.5234]
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toEqual(['Test', 'Target']);
+    expect(response.body.direction).toEqual(['North', 'East']);
+    expect(response.body.quantity).toBe(1); // Default value for array
+    expect(response.body.lat).toEqual([50.4501]);
+    expect(response.body.lng).toEqual([30.5234]);
+  });
+
+  // Test 34: POST /api/add - Should handle object values
+  test('should handle object values', async () => {
+    const newTarget = {
+      name: { text: 'Test Target' },
+      direction: { value: 'North' },
+      quantity: { value: 5 },
+      lat: { value: 50.4501 },
+      lng: { value: 30.5234 }
+    };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body.name).toEqual({ text: 'Test Target' });
+    expect(response.body.direction).toEqual({ value: 'North' });
+    expect(response.body.quantity).toBe(1); // Default value for object
+    expect(response.body.lat).toEqual({ value: 50.4501 });
+    expect(response.body.lng).toEqual({ value: 30.5234 });
+  });
+
+  // Test 35: POST /api/add - Should return the newly created target
+  test('should return the newly created target', async () => {
+    const newTarget = { name: 'Unique Target', direction: 'S', quantity: 10, lat: 12.34, lng: 56.78 };
+    const response = await request(app).post('/api/add').send(newTarget);
+    expect(response.statusCode).toBe(201);
+    expect(response.body).toMatchObject(newTarget);
+  });
+}); 

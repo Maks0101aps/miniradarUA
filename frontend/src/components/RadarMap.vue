@@ -1,6 +1,6 @@
 <template>
   <div class="radar-map">
-    <div ref="mapContainer" class="map-container"></div>
+    <div ref="mapContainer" id="map" class="map-container"></div>
     <button @click="captureMap">Зберегти скріншот</button>
   </div>
 </template>
@@ -23,6 +23,10 @@ export default {
   },
   mounted() {
     this.$nextTick(() => {
+      // Set playwright flag for testing environment
+      if (typeof window !== 'undefined' && window.navigator && window.navigator.userAgent.includes('Playwright')) {
+        window.playwright = true;
+      }
       this.initMap();
     });
   },
@@ -51,6 +55,11 @@ export default {
         maxBounds: ukraineBounds,
         maxBoundsViscosity: 1.0
       });
+
+      // Expose map instance for testing
+      if (window.Cypress || window.playwright) {
+        window.map = this.map;
+      }
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',

@@ -3,7 +3,7 @@
     <h1>Міні-радар України</h1>
     <div class="controls">
       <AddTargetForm @target-added="handleNewTarget" :selected-location="selectedLocation" />
-      <button @click="clearAllTargets" class="clear-button">Очистити всі цілі</button>
+      <button @click="clearAllTargets" class="clear-button" data-testid="clear-all-targets-button">Очистити всі цілі</button>
     </div>
     <RadarMap :targets="targets" @location-selected="handleLocationSelected" />
   </div>
